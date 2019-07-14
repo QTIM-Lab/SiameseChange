@@ -1,6 +1,6 @@
 # SiameseChange
 
-Siamese change detection code for pair-wise medical image comparison.
+Siamese change detection code for pair-wise medical image comparison (a manuscript detailing this approach is submitted)
 
 **Requirements**: 
 - Python 3.6.7
