@@ -2,7 +2,7 @@
 
 Siamese neural network for change detection in pair-wise longitudinal medical image comparison (a manuscript detailing this approach is submitted), in this case for retinopathy of prematurity retinal photographs. 
 
-THESE SCRIPTS ARE A WORK IN PROGRESS. Images and their annotations feature patient data and are not included here.
+**THESE SCRIPTS ARE A WORK IN PROGRESS. Images and their annotations feature patient data and are not included here.**
 
 **Requirements**: 
 
