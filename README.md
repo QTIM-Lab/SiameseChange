@@ -1,6 +1,6 @@
 # SiameseChange
 
-Siamese change detection code for pair-wise medical image comparison (a manuscript detailing this approach is submitted)
+Siamese neural network for change detection in pair-wise longitudinal medical image comparison (a manuscript detailing this approach is submitted)
 
 **Requirements**: 
 
