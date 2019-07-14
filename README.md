@@ -1,6 +1,6 @@
 # SiameseChange
 
-Siamese neural network for change detection in pair-wise longitudinal medical image comparison (a manuscript detailing this approach is submitted)
+Siamese neural network for change detection in pair-wise longitudinal medical image comparison (a manuscript detailing this approach is submitted), in this case for retinopathy of prematurity retinal photographs
 
 **Requirements**: 
 
@@ -16,6 +16,7 @@ The working directory should contain the following Python scripts:
 - main.py (training and validation script)
 - eval.py (testing evaluation script)
 - partition.py (script for partitioning the data set)
+- siamese_classes.py (python helper classes)
 
 Run the scripts in an interactive shell, like IPython.
 
