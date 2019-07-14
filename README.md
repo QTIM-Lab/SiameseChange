@@ -12,9 +12,9 @@ Siamese change detection code for pair-wise medical image comparison (a manuscri
 
 The working directory should contain the following Python scripts:
 
-main.py (training and validation script)
-eval.py (testing evaluation script)
-partition.py (script for partitioning the data set)
+- main.py (training and validation script)
+- eval.py (testing evaluation script)
+- partition.py (script for partitioning the data set)
 
 Run the scripts in an interactive shell, like IPython.
 
