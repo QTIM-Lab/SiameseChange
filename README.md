@@ -10,16 +10,10 @@ Siamese change detection code for pair-wise medical image comparison (a manuscri
 
 **How to Run**:
 
-pending...
+Run scripts in an interactive shell, like IPython.
 
-Run via command line (preferably in a docker with above requirements) using main.py file
+The main scripts are as follows:
 
-`python main.py [action] [data_directory] [csv_file] [model_path]`
+main.py
+eval.py
 
-Actions: prepare, train, eval, cluster
-
-Data Directory: contains all images
-
-CSV File: has train and test images split with their names, locations, and labels
-
-Model Path: where you want to save the model OR where model is already saved + .epoch#
