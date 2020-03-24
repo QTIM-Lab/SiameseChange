@@ -1,6 +1,12 @@
 '''
-Siamese neural network test set script
-Originally created 4/23/19
+Siamese ROP evaluation
+created 5/21/2019
+
+analysis of 100 excluded samples from the dataset
+previously annotated by ophthamologists to provide rank of plus disease severity in 100 samples
+
+show that we can learn the severity of clinical grade to a finer degree of continuous variation than just normal, pre-plus, and plus
+Euclidean distance from siamese network model should reflect these distances
 
 '''
 
@@ -19,17 +25,21 @@ from torch.autograd import Variable
 
 # other modules
 import os
+from glob import glob
 from datetime import datetime
 import pandas as pd
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from sklearn import metrics
 import statistics
 import pickle
+import seaborn as sns
+from PIL import Image
 
 # custom classes
-from siamese_classes import ROP_dataset, SiameseNetwork, ContrastiveLoss
+from siamese_ROP_classes import SiameseNetwork101
 
 # CUDA for PyTorch
 os.environ['CUDA_VISIBLE_DEVICES']='0' # pick GPU to use
