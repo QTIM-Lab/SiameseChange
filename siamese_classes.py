@@ -1,5 +1,5 @@
 """
-Siamese neural network classes and functions
+Siamese neural network classes and helper functions
 Evaluating ROP change detection 
 created 2019-04-23
 
@@ -213,3 +213,57 @@ class ContrastiveLoss(torch.nn.Module):
                                       (label) * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2))
 
         return loss_contrastive
+
+    
+def img_processing(input_image):
+    '''
+    processes PIL image file
+    '''
+    output_image = input_image.convert('L')
+    output_image = output_image.resize((300, 225), Image.ANTIALIAS)
+    
+    transf = transforms.Compose([
+        transforms.CenterCrop(224), # pixel crop 
+        transforms.ToTensor()
+    ])
+
+    output_image = transf(output_image)
+    output_image = np.repeat(output_image, 3, 0)
+    output_image = output_image[np.newaxis, ...]
+    output_image = Variable(output_image).cuda()
+
+    return output_image
+
+
+def anchor_inference(img_anchor, image_path, net):
+    '''
+    takes img_anchor list object, image path of interest, and siamese neural network model
+    '''
+
+    img_comparison = img_processing(Image.open(image_path))
+
+    save_euclidean_distance = []
+    for j in range(len(img_anchor)):
+        output1, output2 = net.forward(img_anchor[j], img_comparison)
+        euclidean_distance = F.pairwise_distance(output1, output2)
+        save_euclidean_distance.append(euclidean_distance.item())
+
+    # take median euclidean distance compared to the the pool of normals
+    return statistics.median(save_euclidean_distance)
+
+
+def twoimage_inference(imagepath_0, imagepath_1, net):
+    '''
+    takes image path of raw images from ROP database, and siamese neural network model
+    '''
+    img0 = Image.open(imagepath_0)
+    img1 = Image.open(imagepath_1)
+    img0 = img_processing(img0)
+    img1 = img_processing(img1)
+
+    net.eval()
+    output0, output1 = net.forward(img0, img1)
+    euclidean_distance = F.pairwise_distance(output0, output1)
+    euclidean_distance = euclidean_distance.item()
+
+    return euclidean_distance
