@@ -1,8 +1,10 @@
 # SiameseChange
 
-Siamese neural network for change detection in pair-wise longitudinal medical image comparison (a manuscript detailing this approach is submitted), in this case for retinopathy of prematurity retinal photographs. 
+Using medical images to evaluate disease severity and change over time is a routine and important task in clinical decision making. Grading systems are often used, but are unreliable as domain experts disagree on disease severity category thresholds. These discrete categories also do not reflect the underlying continuous spectrum of disease severity. To address these issues, we developed a convolutional Siamese neural network approach to evaluate disease severity at single time points and change between longitudinal patient visits on a continuous spectrum. We demonstrate this in two medical imaging domains: retinopathy of prematurity (ROP) in retinal photographs and osteoarthritis in knee radiographs.
 
-**THESE SCRIPTS ARE A WORK IN PROGRESS. Images and their annotations feature patient data and are not included here.**
+This work is published in ______ entitled "Siamese neural networks for continuous disease severity evaluation and change detection in medical imaging" (doi: _______).
+
+Please refer to the manuscript methodology for details. 
 
 **Requirements**: 
 
@@ -34,7 +36,7 @@ If you use this code in your work, you can cite... manuscript in submission.
 
 The Center for Clinical Data Science at Massachusetts General Hospital and the Brigham and Woman's Hospital provided technical and hardware supportm including access to graphics processing units. The basis of the siamese network implementation in PyTorch is also indebted to code shared on GitHub by Harshvardhan Gupta (https://github.com/harveyslash/Facial-Similarity-with-Siamese-Networks-in-Pytorch).
 
-Questions? Contact Matt at mdli@mgh.harvard.edu.
+Questions? Contact us at qtimlab@gmail.com.
 
 
 
