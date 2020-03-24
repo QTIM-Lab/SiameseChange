@@ -48,9 +48,8 @@ validation_table = pd.read_csv(working_path + 'data/validation_table.csv')
 # processed image directory
 image_dir = working_path + 'data/'
 
-# TRAINING DATA - INTRA-patient
+# TRAINING DATA - INTER-patient image pairs BUT not limited to a single time point
 
-# transforms used for retinopathy of prematurity
 training_transforms = transforms.Compose([
     transforms.RandomHorizontalFlip(p=0.5), # aim to train to be invariant to laterality of eye
     transforms.RandomRotation(10), # rotate +/- 5 degrees around center
@@ -59,56 +58,63 @@ training_transforms = transforms.Compose([
     transforms.ToTensor()
 ])
 
-training_siamese_dataset = ROP_dataset(patient_table = training_table,
+# note dataset v5 for inter-patient 50:50 comparisons
+training_siamese_dataset = ROP_dataset_v5(patient_table = training_table, 
                                         image_dir = image_dir, 
-                                        epoch_size = 1000,
+                                        epoch_size = 3200,
                                         transform = training_transforms)
  
 training_dataloader = torch.utils.data.DataLoader(training_siamese_dataset, 
-                                                  batch_size=32, 
+                                                  batch_size=16, 
                                                   shuffle=False, 
                                                   num_workers=0)
- 
-# VALIDATION DATA - INTRA-patient
+
+# VALIDATION DATA - INTER-patient image pairs BUT not limited to a single time point
 
 validation_transforms = transforms.Compose([
     transforms.CenterCrop(224), # pixel crop 
     transforms.ToTensor()
 ])
 
-validation_siamese_dataset = siamese_dataset(patient_table = validation_table,
+# note dataset v5 for inter-patient 50:50 comparisons
+validation_siamese_dataset = ROP_dataset_v5(patient_table = validation_table, 
                                         image_dir = image_dir, 
-                                        epoch_size = 1000,
-                                        transform = validation_transforms)
-
+                                        epoch_size = 1600,
+                                        transform = training_transforms)
+ 
 validation_dataloader = torch.utils.data.DataLoader(validation_siamese_dataset, 
-                                                  batch_size=32, 
+                                                  batch_size=16, 
                                                   shuffle=False, 
                                                   num_workers=0)
 
- 
 '''
 Training the siamese network 
+Based on https://hackernoon.com/facial-similarity-with-siamese-networks-in-pytorch-9642aa9db2f7
+Early stopping with saving of model by validation loss based on https://towardsdatascience.com/transfer-learning-with-convolutional-neural-networks-in-pytorch-dd09190245ce
 
 '''
 
-def siamese_training(training_dataloader, validation_dataloader, output_folder_name, learning_rate = 0.00001):
+def siamese_training(training_dataloader, validation_dataloader, output_folder_name, learning_rate = 0.000005):
     '''
     - Implements siamese network training/validation with return of network weights and history of losses and accuracies
     - Implementation uses early stopping, saving the model with the best validation loss
+    - Note: in this version of the code, an accuracy for change detection is reported, calculated by assigning a change label 
+    - that is based on whether or not the calculated Euclidean distance between the two images exceeds a threshold. This
+    - euclidean distance threshold is equal to the average of the validation mean Euclidean distances for change vs no change
+    - label cases. This method and results of this method are NOT reported in the manuscript, but are kept in this code for
+    - posterity and are irrelevant to the training of the model.
 
     Arguments
-    - training_dataloader: pytorch dataloader object
-    - validation_dataloader: pytorch dataloader object
-    - output_folder_name: name of folder to make in the working directory where the results will be saved
+    - training and validation dataloader objects
+    - output_folder_name: directory to save model and annotations
     - learning_rate: for Adam optimizer
 
     ''' 
-    net = SiameseNetwork().cuda()
+    net = SiameseNetwork101().cuda()
     criterion = ContrastiveLoss()
     criterion.margin = 2.0  # contrastive loss function margin
     optimizer = optim.Adam(net.parameters(),lr = learning_rate)
-
+ 
     # Initialization
     num_epochs = 1000
     training_losses, validation_losses = [], []
@@ -117,7 +123,7 @@ def siamese_training(training_dataloader, validation_dataloader, output_folder_n
 
     # Early stopping initialization
     epochs_no_improve = 0
-    max_epochs_stop = 5 # "patience" - number of epochs with no improvement in validation loss after which training stops
+    max_epochs_stop = 3 # "patience" - number of epochs with no improvement in validation loss after which training stops
     validation_loss_min = np.Inf
     validation_max_accuracy = 0
     history = []
@@ -154,10 +160,10 @@ def siamese_training(training_dataloader, validation_dataloader, output_folder_n
             img0, img1, label, meta = data
             img0 = np.repeat(img0, 3, 1) # repeat grayscale image in 3 channels (ResNet requires 3-channel input) 
             img1 = np.repeat(img1, 3, 1)
-            img0, img1, label = Variable(img0).cuda(), Variable(img1).cuda(), Variable(label).cuda()
+            img0, img1, label = Variable(img0).cuda(), Variable(img1).cuda(), Variable(label).cuda()  # send tensors to the GPU
             optimizer.zero_grad() # clear gradients
-            output1, output2 = net.forward(img0, img1)
-            loss_contrastive = criterion(output1, output2, label.float())
+            output0, output1 = net.forward(img0, img1)
+            loss_contrastive = criterion(output0, output1, label.float())
             loss_contrastive.backward()
             optimizer.step()
 
@@ -166,20 +172,20 @@ def siamese_training(training_dataloader, validation_dataloader, output_folder_n
 
             # evaluate training accuracy
             net.eval()
-            output1, output2 = net.forward(img0, img1)
+            output0, output1 = net.forward(img0, img1)
             net.train()
-            euclidean_distance = F.pairwise_distance(output1, output2)
-            training_label = euclidean_distance > euclidean_distance_threshold # 0 if same, 1 if not same
-            label = label.view(1, len(label))
-            equals = training_label == label.type(torch.cuda.ByteTensor) # 1 if true
-            acc_tmp = torch.Tensor.numpy(equals.cpu())[0]
+            euclidean_distance = F.pairwise_distance(output0, output1)
+            training_label = euclidean_distance > euclidean_distance_threshold # 0 if same, 1 if not same (progression) 
+            equals = training_label.int() == label.int() # 1 if true
+            acc_tmp = torch.Tensor.numpy(equals.cpu())
             training_accuracy_history.extend(acc_tmp)
 
             # save euclidean distance and label history 
-            euclid_tmp = torch.Tensor.numpy(euclidean_distance.detach().cpu())
+            euclid_tmp = torch.Tensor.numpy(euclidean_distance.detach().cpu()) # detach gradient, move to CPU
             training_euclidean_distance_history.extend(euclid_tmp)
-            label_tmp = torch.Tensor.numpy(label.cpu())[0]
+            label_tmp = torch.Tensor.numpy(label.cpu())
             training_label_history.extend(label_tmp)
+            print("training loop " + str(i) + " completed")
 
         else:
             print("validation started...")
@@ -200,16 +206,17 @@ def siamese_training(training_dataloader, validation_dataloader, output_folder_n
                     # evaluate validation accuracy using a Euclidean distance threshold
                     euclidean_distance = F.pairwise_distance(output1, output2)
                     validation_label = euclidean_distance > euclidean_distance_threshold # 0 if same, 1 if not same
-                    label = label.view(1, len(label))
-                    equals = validation_label == label.type(torch.cuda.ByteTensor) # 1 if true
-                    acc_tmp = torch.Tensor.numpy(equals.cpu())[0]
+                    equals = validation_label.int() == label.int() # 1 if true
+                    acc_tmp = torch.Tensor.numpy(equals.cpu())
                     validation_accuracy_history.extend(acc_tmp)
                     
                     # save euclidean distance and label history 
                     euclid_tmp = torch.Tensor.numpy(euclidean_distance.detach().cpu()) # detach gradient, move to CPU
                     validation_euclidean_distance_history.extend(euclid_tmp)
-                    label_tmp = torch.Tensor.numpy(label.cpu())[0]
+                    label_tmp = torch.Tensor.numpy(label.cpu())
                     validation_label_history.extend(label_tmp)
+
+                    print("validation loop " + str(j) + " completed")
 
             # calculate average training and validation losses (averaged across batches for the epoch)
             training_loss_avg = training_loss/len(training_dataloader)
@@ -222,7 +229,7 @@ def siamese_training(training_dataloader, validation_dataloader, output_folder_n
             # Save the model if validation loss decreases
             if validation_loss_avg < validation_loss_min:
                 # save model
-                torch.save(net.state_dict(), output_dir + "/siamese_model.pth")
+                torch.save(net.state_dict(), output_dir + "/siamese_ROP_model.pth")
                 # track improvement
                 epochs_no_improve = 0
                 validation_loss_min = validation_loss_avg
@@ -236,7 +243,7 @@ def siamese_training(training_dataloader, validation_dataloader, output_folder_n
                 if epochs_no_improve >= max_epochs_stop:
                     print(f'\nEarly Stopping! Total epochs (starting from 0): {epoch}. Best epoch: {best_epoch} with loss: {validation_loss_min:.2f} and acc: {100 * validation_max_accuracy:.2f}%')
                     # Load the best state dict (at the early stopping point)
-                    net.load_state_dict(torch.load(output_dir + "/siamese_model.pth"))
+                    net.load_state_dict(torch.load(output_dir + "/siamese_ROP_model.pth"))
                     # attach the optimizer
                     net.optimizer = optimizer
 
@@ -253,7 +260,7 @@ def siamese_training(training_dataloader, validation_dataloader, output_folder_n
                             )
                     f.close()
 
-                    return net, history
+                    return net, history # break the function
 
         # after each Epoch
 
@@ -294,7 +301,7 @@ def siamese_training(training_dataloader, validation_dataloader, output_folder_n
         # after the epoch is completed, adjust the euclidean_distance_threshold based on the validation mean euclidean distances
         euclidean_distance_threshold = (mean_euclid_0v + mean_euclid_1v) / 2
 
-        # store in history list
+        # store in history list --> add the other euclidean stats here for graphs?
         history = [training_losses, validation_losses, training_accuracies, validation_accuracies,
                    euclid_diff_t, euclid_diff_v]
  
@@ -343,19 +350,19 @@ def siamese_training(training_dataloader, validation_dataloader, output_folder_n
         f.close()
  
     # Load the best state dict (at the early stopping point)
-    net.load_state_dict(torch.load(output_dir + "/siamese_model.pth"))
+    net.load_state_dict(torch.load(output_dir + "/siamese_ROP_model.pth"))
     # After training through all epochs attach the optimizer
     net.optimizer = optimizer
 
     # Return the best model and history
     print(f'\nAll Epochs completed! Total epochs (starting from 0): {epoch}. Best epoch: {best_epoch} with validation loss: {validation_loss_min:.2f} and acc: {100 * validation_max_accuracy:.2f}%')
     return net, history
-
+ 
 # siamese training 
 net, history = siamese_training(training_dataloader = training_dataloader, 
                                validation_dataloader = validation_dataloader, 
-                               output_folder_name = 'experiment_1')
-   
+                               output_folder_name = 'Res101_inter')
+
 # Training/validation learning curves
 plt.title("Number of Training Epochs vs. Contrastive Loss")
 plt.xlabel("Training Epochs")
