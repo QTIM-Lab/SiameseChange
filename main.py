@@ -4,7 +4,7 @@ Originally created 4/23/19
 
 '''
 
-# WORKING DIRECTORY (should contain a data/ subdirectories)
+# WORKING DIRECTORY (should contain a data/ subdirectory)
 working_path = '/SiameseChange/'
 os.chdir(working_path)
 
@@ -29,7 +29,7 @@ import statistics
 import pickle
 
 # custom classes
-from siamese_classes import ROP_dataset, SiameseNetwork, ContrastiveLoss
+from siamese_classes import ROP_dataset_v5, SiameseNetwork101, ContrastiveLoss
 
 # CUDA for PyTorch
 os.environ['CUDA_VISIBLE_DEVICES']='0' # pick GPU to use
