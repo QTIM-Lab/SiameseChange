@@ -2,7 +2,7 @@
 
 Using medical images to evaluate disease severity and change over time is a routine and important task in clinical decision making. Grading systems are often used, but are unreliable as domain experts disagree on disease severity category thresholds. These discrete categories also do not reflect the underlying continuous spectrum of disease severity. To address these issues, we developed a convolutional Siamese neural network approach to evaluate disease severity at single time points and change between longitudinal patient visits on a continuous spectrum. We demonstrate this in two medical imaging domains: retinopathy of prematurity (ROP) in retinal photographs and osteoarthritis in knee radiographs.
 
-This work is published in ______ entitled "Siamese neural networks for continuous disease severity evaluation and change detection in medical imaging" (doi: _______).
+This work is published in TO-BE-ANNOUNCED-JOURNAL entitled "Siamese neural networks for continuous disease severity evaluation and change detection in medical imaging" (doi: XXX).
 
 Please refer to the manuscript methodology for details. 
 
@@ -30,11 +30,13 @@ The working directory should also contain a 'data/' subdirectory, which contains
 
 **Citation**:
 
-If you use this code in your work, you can cite... manuscript in submission.
+If you use this code in your work, please cite: 
+
+PENDING-CITATION
 
 **Acknowledgments**:
 
-The Center for Clinical Data Science at Massachusetts General Hospital and the Brigham and Woman's Hospital provided technical and hardware supportm including access to graphics processing units. The basis of the siamese network implementation in PyTorch is also indebted to code shared on GitHub by Harshvardhan Gupta (https://github.com/harveyslash/Facial-Similarity-with-Siamese-Networks-in-Pytorch).
+The Center for Clinical Data Science (CCDS) at Massachusetts General Hospital and the Brigham and Woman's Hospital provided technical and hardware support including access to graphics processing units. The basis of the siamese neural network implementation in PyTorch is also indebted to code shared on GitHub by Harshvardhan Gupta (https://github.com/harveyslash/Facial-Similarity-with-Siamese-Networks-in-Pytorch).
 
 Questions? Contact us at qtimlab@gmail.com.
 
