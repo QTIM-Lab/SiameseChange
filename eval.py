@@ -15,6 +15,10 @@ Part 3:
 - 1. median Euclidean distance relative to a pool of randomly sampled 'normal' images
 - 2. pairwise Euclidean distance between two images for direct comparison
 
+Part 4: 
+- Example of inference of image Euclidean distance relative to an anchor (pooled 'normal' images)
+- Example of two image pairwise Euclidean distance inference
+
 '''
 
 # WORKING DIRECTORY (should contain a data/ subdirectories)
@@ -46,7 +50,7 @@ import seaborn as sns
 from PIL import Image
 
 # custom classes
-from siamese_ROP_classes import SiameseNetwork101, img_processing
+from siamese_ROP_classes import SiameseNetwork101, img_processing, anchor_inference, twoimage_inference
 
 # CUDA for PyTorch
 os.environ['CUDA_VISIBLE_DEVICES']='0' # pick GPU to use
@@ -223,6 +227,200 @@ pooled_normal_test_[['euclidean_distance', 'grade_record']].corr(method = "spear
 
 '''
 Part 3: Analysis of longitudinal change in disease severity in the test set, using two methods:
-- 1. median Euclidean distance relative to a pool of randomly sampled 'normal' images
+- 1. median Euclidean distance difference (relative to a pool of randomly sampled 'normal' images)
 - 2. pairwise Euclidean distance between two images for direct comparison
 '''
+
+pooled_normal_test = pd.read_csv(working_path + 'data/pooled_normal_test.csv')
+testing_table = pd.read_csv(working_path + 'data/testing_table.csv')
+
+# loop through each patient in the test set, find both eyes, get two time points per eye if available
+# no same image comparison. time points should have directionality in this case
+
+subjectID_record = []
+eye_record = []
+PD_A_record = []
+PD_B_record = []
+PD_change_record = []
+PD_change_binary_record = []
+
+euclidean_distance_diff_record = []
+pairwise_euclidean_distance_record = []
+
+# represent labels as numerics
+testing_table.loc[testing_table['Ground truth'] == 'No', 'Ground truth'] = 0
+testing_table.loc[testing_table['Ground truth'] == 'Pre-Plus', 'Ground truth'] = 1
+testing_table.loc[testing_table['Ground truth'] == 'Plus', 'Ground truth'] = 2
+
+# reformat the image_paths to match pooled_normal_test format
+testing_table['image_path'] = [(image_dir + a[:-3] + 'png') for a in testing_table['imageName']]
+
+net.eval()
+for i in list(set(testing_table['subjectID'])):
+    # left eye combos
+    pick_L = testing_table[testing_table['subjectID'] == i][testing_table['eye'] == 'os']
+    # right eye combos
+    pick_R = testing_table[testing_table['subjectID'] == i][testing_table['eye'] == 'od']
+
+    # randomly pick an eye combo with change if it exists (since change is underrepresented)
+    # if does not exist, pick any random combo
+
+    for p in [pick_L, pick_R]:
+        if len(p) > 1: # need at least two images to compare
+            possible_labels = list(set(p['Ground truth']))
+            if len(possible_labels) > 1: # pick change example if available
+                pick2labels = np.random.choice(possible_labels, 2, replace = False)
+                pick1 = p[p['Ground truth'] == pick2labels[0]].sample()
+                pick2 = p[p['Ground truth'] == pick2labels[1]].sample()
+                pick1, pick2 = pick1.squeeze(), pick2.squeeze()
+            else: # pick no change example
+                no_change_sample = p.sample(2, replace = False)
+                pick1 = no_change_sample.iloc[0]
+                pick2 = no_change_sample.iloc[1]
+
+            time_diff = pick2['PMARaw'].item() - pick1['PMARaw'].item()
+            if time_diff < 1: 
+                # if first time point is later than second time point, reverse order
+                pick1, pick2 = pick2, pick1
+
+            if pick1['eye'] == 'os': 
+                R_eye = 0
+            else: 
+                R_eye = 1
+
+            PD_A = pick1['Ground truth'].item()
+            PD_B = pick2['Ground truth'].item()
+            PD_change = PD_B - PD_A
+            if PD_change == 0:
+                PD_change_binary = 0
+            else: 
+                PD_change_binary = 1
+
+            pooled_normal_test_A = pooled_normal_test[pooled_normal_test['image_path'] == pick1['image_path']]
+            pooled_normal_test_B = pooled_normal_test[pooled_normal_test['image_path'] == pick2['image_path']]
+            euclidean_distance_A = pooled_normal_test_A['euclidean_distance'].iloc[0]
+            euclidean_distance_B = pooled_normal_test_B['euclidean_distance'].iloc[0]
+            euclidean_distance_diff = euclidean_distance_B - euclidean_distance_A
+
+            with torch.no_grad():
+                img_comp1 = img_processing(Image.open(pick1['image_path']))
+                img_comp2 = img_processing(Image.open(pick2['image_path']))
+                output1, output2 = net.forward(img_comp1, img_comp2)
+                pairwise_euclidean_distance = F.pairwise_distance(output1, output2).item()
+
+            subjectID_record.append(i)
+            eye_record.append(R_eye)
+            PD_A_record.append(PD_A)
+            PD_B_record.append(PD_B)
+            PD_change_record.append(PD_change)
+            PD_change_binary_record.append(PD_change_binary)
+            euclidean_distance_diff_record.append(euclidean_distance_diff)
+            pairwise_euclidean_distance_record.append(pairwise_euclidean_distance)
+
+            print('patient ' + str(i) + ' for eye ' + pick1['eye'])
+
+longitudinal_change_tab = pd.DataFrame({ 'subjectID':subjectID_record,
+                                         'R_eye':eye_record,
+                                         'PD_A':PD_A_record,
+                                         'PD_B':PD_B_record,
+                                         'PD_change':PD_change_record,
+                                         'PD_change_binary':PD_change_binary_record,
+                                         'euclidean_distance_diff':euclidean_distance_diff_record,
+                                         'pairwise_euclidean_distance':pairwise_euclidean_distance_record,
+                                        })
+
+longitudinal_change_tab.to_csv(working_path + 'data/longitudinal_change_tab.csv')
+longitudinal_change_tab = pd.read_csv(working_path + 'data/longitudinal_change_tab.csv')
+
+testing_results_df = longitudinal_change_tab 
+
+# boxplot for euclidean distance diff
+plt.figure()
+plt.tight_layout()
+plt.gcf().subplots_adjust(bottom=0.15, left=0.15)
+plt.tick_params(axis='both', which='major', labelsize=15)
+sns.set(style="white")
+ax = sns.boxplot(x="PD_change", y="euclidean_distance_diff", data=testing_results_df, color = 'white', showfliers = False)
+
+for i,box in enumerate(ax.artists):
+    box.set_edgecolor('black')
+    box.set_facecolor('white')
+    # iterate over whiskers and median lines
+    for j in range(5*i,5*(i+1)):
+         ax.lines[j].set_color('black')
+
+ax = sns.swarmplot(x="PD_change", y="euclidean_distance_diff", data=testing_results_df, color="grey")
+plt.xlabel('Longitudinal Plus Disease Grade Change', fontsize = 15)
+plt.ylabel('Euclidean Distance Difference', fontsize = 15)
+plt.savefig(output_dir + "/PDchange_vs_EuclideanDist_boxplot_euclidean_distance_diff.png")
+plt.close()
+
+# Spearman rank correlation 
+testing_results_df[['euclidean_distance_diff', 'PD_change']].corr(method = "spearman")
+
+
+# boxplot for euclidean distance pairwise
+testing_results_df['PD_change'] = abs(testing_results_df['PD_change'])
+
+plt.figure()
+plt.tight_layout()
+plt.gcf().subplots_adjust(bottom=0.15, left=0.15)
+plt.tick_params(axis='both', which='major', labelsize=15)
+sns.set(style="white")
+ax = sns.boxplot(x="PD_change", y="pairwise_euclidean_distance", data=testing_results_df, color = 'white', showfliers = False)
+
+for i,box in enumerate(ax.artists):
+    box.set_edgecolor('black')
+    box.set_facecolor('white')
+    # iterate over whiskers and median lines
+    for j in range(5*i,5*(i+1)):
+         ax.lines[j].set_color('black')
+
+ax = sns.swarmplot(x="PD_change", y="pairwise_euclidean_distance", data=testing_results_df, color="grey")
+plt.xlabel('Longitudinal Magnitude of Plus Disease Grade Change', fontsize = 15)
+plt.ylabel('Pairwise Euclidean Distance', fontsize = 15)
+plt.savefig(output_dir + "/PDchange_vs_EuclideanDist_boxplot_euclidean_distance_pairwise.png")
+plt.close()
+
+# Spearman rank correlation 
+testing_results_df[['pairwise_euclidean_distance', 'PD_change']].corr(method = "spearman")
+
+'''
+Part 4: Example inference
+- Example of inference of image median Euclidean distance relative to an anchor (pooled 'normal' images)
+- Example of inference of two image pairwise Euclidean distance
+'''
+
+# loading siamese neural network model from the main.py output
+output_folder_name = 'Res101_inter'
+output_dir = working_path + "scripts/histories/" + output_folder_name
+net = SiameseNetwork101().cuda()
+net.load_state_dict(torch.load(output_dir + "/siamese_ROP_model.pth"))
+history = pickle.load(open(output_dir + "/history_training.pckl", "rb"))
+
+### inference relative to pool of normal images 
+
+# just the default test_table.csv (annotations for the randomly partitioned test set), where each row is one image with its annotations
+testing_table_byimage = pd.read_csv(working_path + 'data/testing_table.csv')
+
+# random sample of 10 "normal" images from the test set
+random10 = testing_table_byimage[testing_table_byimage['Ground truth'] == 'No'].sample(10)
+random10.to_csv(working_path + 'data/random10.csv')
+
+# anchor images from the random 10 images
+random10 = pd.read_csv(working_path + 'data/random10.csv')
+img_anchor = []
+for a in range(len(random10)):
+    image_path = image_dir + random10.iloc[a]['imageName'][:-3] + 'png'
+    img_anchor.append(img_processing(Image.open(image_path)))
+
+# takes the img_anchor, image of interest, and siamese neural network model as inputs
+anchor_inference(img_anchor, image_dir + 'imagename.png', net)
+
+### pairwise inference
+
+# example of determining euclidean distance between two images
+# takes the two images of interest and siamese neural network model as inputs
+twoimage_inference(image_dir + 'image1.png',
+                   image_dir + 'image2.png',
+                   net)
