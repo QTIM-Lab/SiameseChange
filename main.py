@@ -4,10 +4,6 @@ Originally created 4/23/19
 
 '''
 
-# WORKING DIRECTORY (should contain a data/ subdirectory)
-working_path = '/SiameseChange/'
-os.chdir(working_path)
-
 # PyTorch modules
 import torch
 from torch import nn
@@ -27,6 +23,10 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import statistics
 import pickle
+
+# WORKING DIRECTORY (should contain a data/ subdirectory)
+working_path = '/SiameseChange/'
+os.chdir(working_path)
 
 # custom classes
 from siamese_classes import ROP_dataset_v5, SiameseNetwork101, ContrastiveLoss
@@ -80,7 +80,7 @@ validation_transforms = transforms.Compose([
 validation_siamese_dataset = ROP_dataset_v5(patient_table = validation_table, 
                                         image_dir = image_dir, 
                                         epoch_size = 1600,
-                                        transform = training_transforms)
+                                        transform = validation_transforms)
  
 validation_dataloader = torch.utils.data.DataLoader(validation_siamese_dataset, 
                                                   batch_size=16, 
